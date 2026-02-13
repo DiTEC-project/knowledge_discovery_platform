@@ -201,8 +201,8 @@ if __name__ == '__main__':
         miner_config=AerialConfig(
             epochs=2,
             max_items=3,
-            ant_similarity=0.01,
-            cons_similarity=0.8,
+            min_rule_frequency=0.01,
+            min_rule_strength=0.8,
             batch_size=64,
             layer_dims=[8]
         ),

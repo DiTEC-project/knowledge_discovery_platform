@@ -17,8 +17,8 @@ class AerialMiner(HybridMiner):
             batch_size: int = 32,
             max_length: int = 3,
             max_antecedents: int = 2,
-            ant_similarity: float = 0.5,
-            cons_similarity: float = 0.8,
+            min_rule_frequency: float = 0.5,
+            min_rule_strength: float = 0.8,
             layer_dims: list = None,
             target_class=None,
             features_of_interest: list = None,
@@ -31,8 +31,8 @@ class AerialMiner(HybridMiner):
         self.batch_size = batch_size
         self.max_length = max_length
         self.max_antecedents = max_antecedents
-        self.ant_similarity = ant_similarity
-        self.cons_similarity = cons_similarity
+        self.min_rule_frequency = min_rule_frequency
+        self.min_rule_strength = min_rule_strength
         self.layer_dims = layer_dims
         self.target_class = target_class
         self.features_of_interest = features_of_interest
@@ -56,7 +56,7 @@ class AerialMiner(HybridMiner):
         result = rule_extraction.generate_frequent_itemsets(
             trained_ae,
             features_of_interest=self.features_of_interest,
-            similarity=self.ant_similarity,
+            similarity=self.min_rule_frequency,
             max_length=self.max_length
         )
 
@@ -101,8 +101,8 @@ class AerialMiner(HybridMiner):
         result = rule_extraction.generate_rules(
             trained_ae,
             features_of_interest=self.features_of_interest,
-            ant_similarity=self.ant_similarity,
-            cons_similarity=self.cons_similarity,
+            min_rule_frequency=self.min_rule_frequency,
+            min_rule_strength=self.min_rule_strength,
             max_antecedents=self.max_antecedents,
             target_classes=self.target_class,
             quality_metrics=self.quality_metrics
@@ -119,5 +119,5 @@ class AerialMiner(HybridMiner):
 
     def __repr__(self):
         return (f"AerialMiner(epochs={self.epochs}, max_length={self.max_length}, "
-                f"max_antecedents={self.max_antecedents}, ant_similarity={self.ant_similarity}, "
-                f"cons_similarity={self.cons_similarity})")
+                f"max_antecedents={self.max_antecedents}, min_rule_frequency={self.min_rule_frequency}, "
+                f"min_rule_strength={self.min_rule_strength})")

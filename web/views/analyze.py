@@ -130,25 +130,25 @@ AERIAL_PRESETS = {
     "quick_overview": {
         "name": "Quick Overview",
         "description": "Find the most obvious, strong patterns quickly. Returns fewer but highly reliable rules. Best for getting a first impression.",
-        "params": {"ant_similarity": 0.5, "cons_similarity": 0.9, "max_antecedents": 2, "epochs": 2, "batch_size": 32,
+        "params": {"min_rule_frequency": 0.5, "min_rule_strength": 0.9, "max_antecedents": 2, "epochs": 2, "batch_size": 32,
                    "layer_dims": None}
     },
     "balanced": {
         "name": "Balanced Analysis",
         "description": "Good balance between coverage and reliability. Recommended for most analyses.",
-        "params": {"ant_similarity": 0.3, "cons_similarity": 0.8, "max_antecedents": 2, "epochs": 2, "batch_size": 16,
+        "params": {"min_rule_frequency": 0.3, "min_rule_strength": 0.8, "max_antecedents": 2, "epochs": 2, "batch_size": 16,
                    "layer_dims": None}
     },
     "deep_search": {
         "name": "Deep Search",
         "description": "Find subtle patterns that might be missed. Returns more rules including weaker associations.",
-        "params": {"ant_similarity": 0.1, "cons_similarity": 0.7, "max_antecedents": 3, "epochs": 2, "batch_size": 16,
+        "params": {"min_rule_frequency": 0.1, "min_rule_strength": 0.7, "max_antecedents": 3, "epochs": 2, "batch_size": 16,
                    "layer_dims": None}
     },
     "comprehensive": {
         "name": "Comprehensive",
         "description": "Maximum coverage. Finds many patterns including complex ones. Takes longer to run.",
-        "params": {"ant_similarity": 0.01, "cons_similarity": 0.7, "max_antecedents": 4, "epochs": 2, "batch_size": 2,
+        "params": {"min_rule_frequency": 0.01, "min_rule_strength": 0.7, "max_antecedents": 4, "epochs": 2, "batch_size": 2,
                    "layer_dims": None}
     }
 }
@@ -234,8 +234,8 @@ def _select_aerial_preset(key):
     preset = AERIAL_PRESETS[key]
     st.session_state.aerial_preset = key
     st.session_state.aerial_params = preset["params"].copy()
-    st.session_state.aerial_ant_similarity = preset["params"]["ant_similarity"]
-    st.session_state.aerial_cons_similarity = preset["params"]["cons_similarity"]
+    st.session_state.aerial_min_rule_frequency = preset["params"]["min_rule_frequency"]
+    st.session_state.aerial_min_rule_strength = preset["params"]["min_rule_strength"]
     st.session_state.aerial_max_antecedents = preset["params"]["max_antecedents"]
     st.session_state.aerial_epochs = preset["params"]["epochs"]
     st.session_state.aerial_batch_size = preset["params"].get("batch_size") or 32
@@ -329,16 +329,16 @@ def render_aerial_config(df):
 
         c1, c2 = st.columns(2)
         with c1:
-            params["ant_similarity"] = st.slider(
+            params["min_rule_frequency"] = st.slider(
                 "Pattern Frequency",
-                0.0, 1.0, params["ant_similarity"],
-                key="aerial_ant_similarity",
+                0.0, 1.0, params["min_rule_frequency"],
+                key="aerial_min_rule_frequency",
                 help="Lower = more rules, patterns occur in the data less often. Higher = less rules, more frequently occurring patterns."
             )
-            params["cons_similarity"] = st.slider(
-                "Pattern Strictness",
-                0.0, 1.0, params["cons_similarity"],
-                key="aerial_cons_similarity",
+            params["min_rule_strength"] = st.slider(
+                "Pattern Strength",
+                0.0, 1.0, params["min_rule_strength"],
+                key="aerial_min_rule_strength",
                 help="Higher = stricter, fewer rules. Lower = more permissive but lower association strength."
             )
             params["max_antecedents"] = st.slider(
@@ -572,8 +572,8 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             epochs=params["epochs"],
             batch_size=params["batch_size"],
             max_antecedents=params["max_antecedents"],
-            ant_similarity=params["ant_similarity"],
-            cons_similarity=params["cons_similarity"],
+            min_rule_frequency=params["min_rule_frequency"],
+            min_rule_strength=params["min_rule_strength"],
             layer_dims=params["layer_dims"],
             target_class=aerial_target_class,
             features_of_interest=aerial_features,
@@ -590,7 +590,7 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             progress.progress(100, "Done!")
             status_placeholder.empty()
             st.warning(
-                "No rules found. Try adjusting parameters: lower Pattern Frequency, lower Pattern Strictness, or more Training Length.")
+                "No rules found. Try adjusting parameters: lower Pattern Frequency, lower Pattern Strength, or more Training Length.")
             return
 
         status_placeholder.info("⏳ Processing results...")

@@ -64,8 +64,8 @@ def create_miner(config: RuleMiningConfig, target_classes: List[Dict] = None):
         return AerialMiner(
             epochs=cfg.epochs,
             max_items=cfg.max_items,
-            ant_similarity=cfg.ant_similarity,
-            cons_similarity=cfg.cons_similarity,
+            min_rule_frequency=cfg.min_rule_frequency,
+            min_rule_strength=cfg.min_rule_strength,
             batch_size=cfg.batch_size,
             layer_dims=cfg.layer_dims,
             target_class=target_classes

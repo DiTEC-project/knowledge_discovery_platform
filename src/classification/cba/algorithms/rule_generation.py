@@ -81,8 +81,8 @@ def generateCARs(transactionDB, algorithm="aerial_plus", target_class=None, supp
     """
     if algorithm == "aerial_plus":
         aerial_plus_input = transactiondb_to_dataframe(transactionDB)
-        aerial_plus = AerialPlus(ant_similarity=config.ANTECEDENT_SIMILARITY,
-                                 cons_similarity=config.CONSEQUENT_SIMILARITY, max_antecedents=config.MAX_ANTECEDENT)
+        aerial_plus = AerialPlus(min_rule_frequency=config.ANTECEDENT_SIMILARITY,
+                                 min_rule_strength=config.CONSEQUENT_SIMILARITY, max_antecedents=config.MAX_ANTECEDENT)
         aerial_plus.create_input_vectors(aerial_plus_input)
         # MLxtend's FP-Growth does not support constraint itemset mining while aerial_plus does (with target_class
         # parameter. For fairness, we run both method without itemset constraint mining option and compare the

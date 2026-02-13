@@ -68,8 +68,8 @@ class PreprocessingConfig:
 class AerialConfig:
     epochs: int = 4
     max_items: int = 2
-    ant_similarity: float = 0.01
-    cons_similarity: float = 0.8
+    min_rule_frequency: float = 0.01
+    min_rule_strength: float = 0.8
     batch_size: int = 64
     layer_dims: List[int] = field(default_factory=lambda: [16])
 
@@ -77,8 +77,8 @@ class AerialConfig:
         return {
             'epochs': self.epochs,
             'max_items': self.max_items,
-            'ant_similarity': self.ant_similarity,
-            'cons_similarity': self.cons_similarity,
+            'min_rule_frequency': self.min_rule_frequency,
+            'min_rule_strength': self.min_rule_strength,
             'batch_size': self.batch_size,
             'layer_dims': self.layer_dims
         }

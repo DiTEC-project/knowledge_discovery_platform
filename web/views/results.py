@@ -199,7 +199,7 @@ def render_rules_table(rules):
             "Support (%)": support * 100 if support is not None else None,
             "Confidence (%)": confidence * 100 if confidence is not None else None,
             "Assoc. Strength": r.get("zhangs_metric"),
-            "Interest (%)": interest * 100 if interest is not None else None
+            "Interestingness (%)": interest * 100 if interest is not None else None
         })
 
     if rows:

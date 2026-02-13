@@ -46,8 +46,8 @@ BIN_SIZES = [3, 5, 10]
 AERIAL_CONFIG = {
     'epochs': 2,
     'max_antecedents': 3,
-    'ant_similarity': 0.01,
-    'cons_similarity': 0.8,
+    'min_rule_frequency': 0.01,
+    'min_rule_strength': 0.8,
     'batch_size': 64,
     'layer_dims': [16]
 }
@@ -123,8 +123,8 @@ def run_experiment():
             miner = AerialMiner(
                 epochs=AERIAL_CONFIG['epochs'],
                 max_antecedents=AERIAL_CONFIG['max_antecedents'],
-                ant_similarity=AERIAL_CONFIG['ant_similarity'],
-                cons_similarity=AERIAL_CONFIG['cons_similarity'],
+                min_rule_frequency=AERIAL_CONFIG['min_rule_frequency'],
+                min_rule_strength=AERIAL_CONFIG['min_rule_strength'],
                 batch_size=AERIAL_CONFIG['batch_size'],
                 layer_dims=AERIAL_CONFIG['layer_dims'],
                 target_class=[target_label]
