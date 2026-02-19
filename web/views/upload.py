@@ -50,18 +50,45 @@ def infer_column_type(series, total_rows):
 
 
 def render():
+    # If no data loaded yet, show centered upload UI (Google-style)
+    if st.session_state.get("current_data") is None:
+        st.markdown(
+            "<div style='height: 18vh;'></div>",
+            unsafe_allow_html=True,
+        )
+        _, center, _ = st.columns([1, 2, 1])
+        with center:
+            st.markdown(
+                "<h2 style='text-align:center; margin-bottom: 0.25rem;'>📁 Upload Data</h2>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<p style='text-align:center; color:grey; margin-bottom: 1.5rem;'>"
+                "Upload your tabular data file to begin the analysis.<br>"
+                "Supported formats: <b>CSV</b>, <b>Excel</b> (.xlsx, .xls)"
+                "</p>",
+                unsafe_allow_html=True,
+            )
+            uploaded_file = st.file_uploader(
+                "Choose a file",
+                type=["csv", "xlsx", "xls"],
+                help="Upload a tabular dataset with column headers in the first row.",
+                label_visibility="collapsed",
+            )
+        _handle_upload(uploaded_file, center_col=center)
+        return
+
     st.header("📁 Upload Data")
-
-    st.markdown("""
-    Upload your tabular data file to begin the analysis.
-    Supported formats: **CSV**, **Excel** (.xlsx, .xls)
-    """)
-
     uploaded_file = st.file_uploader(
         "Choose a file",
         type=["csv", "xlsx", "xls"],
         help="Upload a tabular dataset with column headers in the first row."
     )
+    _handle_upload(uploaded_file, center_col=None)
+
+
+def _handle_upload(uploaded_file, center_col=None):
+    ctx = center_col if center_col is not None else st
 
     if uploaded_file is not None:
         is_csv = uploaded_file.name.lower().endswith(".csv")
@@ -73,9 +100,9 @@ def render():
             detected_delimiter = detect_delimiter(file_content)
             delimiter_names = {',': 'Comma (,)', ';': 'Semicolon (;)', '\t': 'Tab', '|': 'Pipe (|)'}
 
-            st.success(f"Detected delimiter: **{delimiter_names.get(detected_delimiter, detected_delimiter)}**")
+            ctx.success(f"Detected delimiter: **{delimiter_names.get(detected_delimiter, detected_delimiter)}**")
 
-            with st.expander("CSV Options (change if detection is wrong)"):
+            with ctx.expander("CSV Options (change if detection is wrong)"):
                 col1, col2 = st.columns(2)
                 with col1:
                     delim_options = [',', ';', '\t', '|']
@@ -97,8 +124,8 @@ def render():
             delimiter = ','
             on_bad_lines = 'skip'
 
-        if st.button("📥 Load File", type="primary"):
-            status_placeholder = st.empty()
+        if ctx.button("📥 Load File", type="primary"):
+            status_placeholder = ctx.empty()
             try:
                 with status_placeholder:
                     st.info("⏳ Loading file...")
@@ -133,12 +160,12 @@ def render():
                 st.session_state.mining_results = None
 
                 status_placeholder.empty()
-                st.success(f"✓ Loaded **{uploaded_file.name}**: {len(df)} rows × {len(df.columns)} columns")
+                ctx.success(f"✓ Loaded **{uploaded_file.name}**: {len(df)} rows × {len(df.columns)} columns")
                 st.rerun()
 
             except Exception as e:
                 status_placeholder.empty()
-                st.error(f"Error loading file: {str(e)}")
+                ctx.error(f"Error loading file: {str(e)}")
 
     # Show data if loaded
     if st.session_state.current_data is not None:

@@ -214,7 +214,7 @@ def render():
         render_fpgrowth_config(df)
 
     # Show persistent success message from last analysis
-    if st.session_state.get("last_analysis_result", {}).get("success"):
+    if (st.session_state.get("last_analysis_result") or {}).get("success"):
         result = st.session_state.last_analysis_result
         st.success(f"✓ Analysis complete! Found **{result['num_rules']}** rules using {result['method']}.")
         if st.button("➡️ View Results", type="primary", width="stretch", key="view_results_btn"):

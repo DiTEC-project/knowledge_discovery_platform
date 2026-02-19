@@ -17,6 +17,145 @@ if "mining_results" not in st.session_state:
     st.session_state.mining_results = None
 if "current_page" not in st.session_state:
     st.session_state.current_page = "upload"
+if "tour_done" not in st.session_state:
+    st.session_state.tour_done = False
+if "tour_step" not in st.session_state:
+    st.session_state.tour_step = 0
+
+
+# --- Welcome tour dialog ---
+_TOUR_STEPS = [
+    {
+        "title": "Welcome to the Knowledge Discovery Tool",
+        "content": """
+This tool helps you discover **association rules** in tabular data — patterns of the form:
+
+> *IF* condition A *AND* condition B *THEN* outcome C
+
+It is built around **PyAerial**, a neural network-based rule learning algorithm that finds
+high-quality rules faster and more reliably than classical methods like FP-Growth.
+
+Use the sidebar at any time to jump between pages.
+""",
+    },
+    {
+        "title": "Step 1 — Upload & Configure",
+        "content": """
+**📁 Upload Data**
+
+- Upload a CSV or Excel file.
+- The tool auto-detects column types: *numerical* vs *categorical*.
+- You can override the detected types if needed.
+
+Association rule mining works on **categorical** data. Numerical columns will need to be
+discretized before analysis (the tool handles this for you in the Preprocess step).
+""",
+    },
+    {
+        "title": "Step 2 — Explore",
+        "content": """
+**📊 Explore Data**
+
+Before mining, it helps to understand your data:
+
+- **Distributions** — histograms and bar charts per column.
+- **Correlations** — Pearson / Spearman / Cramér's V heatmaps.
+- **Missing data** — identify columns with many missing values.
+- **Feature vs target** — visualize relationships between variables.
+""",
+    },
+    {
+        "title": "Step 3 — Preprocess",
+        "content": """
+**⚙️ Preprocess**
+
+Prepare your data for rule mining:
+
+- **Discretize** numerical columns into labelled bins (e.g. *low / medium / high*).
+- **Handle missing values** — imputation or removal.
+- **Handle outliers** — cap, remove, or flag them.
+- **Create labels** — define a custom target column using logical conditions.
+
+Every operation is versioned so you can revert at any time.
+""",
+    },
+    {
+        "title": "Step 4 — Analyze",
+        "content": """
+**🔍 Analyze**
+
+Run rule mining on your preprocessed data. Two methods are available:
+
+- **Aerial+** *(recommended)* — PyAerial's neural approach. Learns rules directly without
+  exhaustive enumeration. Fast, flexible, and works well with high-dimensional data.
+- **FP-Growth** — classic frequent-pattern algorithm. Good baseline for comparison.
+
+Select your **target columns** (outcomes you want to explain) and configure thresholds
+for support, confidence, and rule complexity.
+""",
+    },
+    {
+        "title": "Step 5 — Results",
+        "content": """
+**📋 Results**
+
+Inspect and export the discovered rules:
+
+- Filter by **support**, **confidence**, **association strength (Zhang's metric)**.
+- Sort rules by any metric.
+- View a **summary** of the most common conditions and outcome groups.
+- **Export** to CSV or Excel.
+
+**Key metrics at a glance:**
+| Metric | Meaning |
+|--------|---------|
+| Support | How often the pattern appears in the data |
+| Confidence | How reliable the rule is (accuracy) |
+| Zhang's metric | Association strength beyond random chance (−1 to 1) |
+| Interestingness | Combined measure of frequency and reliability |
+""",
+    },
+]
+
+
+@st.dialog("Getting Started", width="large")
+def _show_tour():
+    step = st.session_state.tour_step
+    total = len(_TOUR_STEPS)
+
+    st.progress((step + 1) / total, text=f"Step {step + 1} of {total}")
+    st.markdown(f"### {_TOUR_STEPS[step]['title']}")
+    st.markdown(_TOUR_STEPS[step]["content"])
+
+    st.markdown("---")
+    col_back, col_space, col_skip, col_next = st.columns([1, 2, 1, 1])
+
+    with col_back:
+        if step > 0:
+            if st.button("← Back", use_container_width=True):
+                st.session_state.tour_step -= 1
+                st.rerun()
+
+    with col_skip:
+        if st.button("Skip", use_container_width=True):
+            st.session_state.tour_done = True
+            st.session_state.tour_step = 0
+            st.rerun()
+
+    with col_next:
+        if step < total - 1:
+            if st.button("Next →", type="primary", use_container_width=True):
+                st.session_state.tour_step += 1
+                st.rerun()
+        else:
+            if st.button("Get started", type="primary", use_container_width=True):
+                st.session_state.tour_done = True
+                st.session_state.tour_step = 0
+                st.rerun()
+
+
+if not st.session_state.tour_done:
+    _show_tour()
 
 
 def navigate_to(page):
@@ -54,6 +193,12 @@ with st.sidebar:
                 disabled=is_disabled
         ):
             navigate_to(page_id)
+
+    st.markdown("---")
+    if st.button("? Tour / Help", width="stretch", type="secondary"):
+        st.session_state.tour_done = False
+        st.session_state.tour_step = 0
+        st.rerun()
 
     # Status summary and version selector
     if st.session_state.data is not None:
