@@ -580,10 +580,14 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             quality_metrics=["support", "confidence", "zhangs_metric", "interestingness"]
         )
 
-        status_placeholder.info("⏳ Training neural network... (this may take a moment)")
-        progress.progress(30, "Training neural network... (this may take a moment)")
+        n_epochs = params["epochs"]
+        status_placeholder.info(f"⏳ Training neural network ({n_epochs} epoch{'s' if n_epochs != 1 else ''})...")
+        progress.progress(20, f"Training neural network ({n_epochs} epochs)...")
 
         rules, stats = miner.mine_rules(df_clean)
+
+        status_placeholder.info("⏳ Extracting association rules...")
+        progress.progress(85, "Extracting association rules...")
 
         # Handle case where mining returns no results
         if not rules:
@@ -662,13 +666,15 @@ def run_fpgrowth(df, params, target_cols, target_values, features, feature_value
             max_items=params["max_items"]
         )
 
-        status_placeholder.info("⏳ Mining frequent patterns...")
-        progress.progress(30, "Mining frequent patterns...")
+        def fp_progress(message, fraction):
+            pct = max(20, min(92, int(fraction * 100)))
+            progress.progress(pct, message)
+            status_placeholder.info(f"⏳ {message}")
 
-        rules, stats = miner.mine_rules(df_clean)
+        rules, stats = miner.mine_rules(df_clean, progress_callback=fp_progress)
 
         status_placeholder.info("⏳ Filtering rules...")
-        progress.progress(70, "Filtering rules...")
+        progress.progress(93, "Filtering rules...")
 
         # Filter by target columns
         if target_cols:
@@ -685,7 +691,7 @@ def run_fpgrowth(df, params, target_cols, target_values, features, feature_value
             rules = filtered_rules
 
         status_placeholder.info("⏳ Processing results...")
-        progress.progress(90, "Processing results...")
+        progress.progress(97, "Processing results...")
 
         st.session_state.mining_results = {
             "rules": rules,

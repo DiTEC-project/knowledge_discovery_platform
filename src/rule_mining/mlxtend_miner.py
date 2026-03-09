@@ -27,13 +27,13 @@ class MLxtendMiner(HybridMiner):
     """
 
     def __init__(
-        self,
-        algorithm: str = 'fpgrowth',
-        min_support: float = 0.01,
-        min_confidence: float = 0.5,
-        max_items: int = None,
-        metric: str = 'confidence',
-        **kwargs
+            self,
+            algorithm: str = 'fpgrowth',
+            min_support: float = 0.5,
+            min_confidence: float = 0.8,
+            max_items: int = None,
+            metric: str = 'confidence',
+            **kwargs
     ):
         """
         Initialize MLxtend miner.
@@ -50,7 +50,7 @@ class MLxtendMiner(HybridMiner):
         super().__init__(min_support, min_confidence, max_items, **kwargs)
         self.algorithm = algorithm.lower()
         self.metric = metric
-
+        print("params here:", min_support, min_confidence)
         # Validate algorithm
         valid_algorithms = ['fpgrowth', 'apriori', 'fpmax']
         if self.algorithm not in valid_algorithms:
@@ -153,12 +153,13 @@ class MLxtendMiner(HybridMiner):
 
         return itemsets, stats
 
-    def mine_rules(self, data: pd.DataFrame) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def mine_rules(self, data: pd.DataFrame, progress_callback=None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Mine association rules using FP-Growth.
 
         Args:
             data: DataFrame with discretized features and labels
+            progress_callback: optional callable(message: str, fraction: float) for UI progress
 
         Returns:
             Tuple of (rules, stats)
@@ -167,8 +168,14 @@ class MLxtendMiner(HybridMiner):
 
         start_time = time.time()
 
+        if progress_callback:
+            progress_callback("Encoding transactions...", 0.10)
+
         # Prepare data
         df_encoded = self._prepare_data(data)
+
+        if progress_callback:
+            progress_callback("Mining frequent itemsets...", 0.30)
 
         # Mine frequent itemsets first using selected algorithm
         if self.algorithm == 'fpgrowth':
@@ -202,6 +209,9 @@ class MLxtendMiner(HybridMiner):
                 'algorithm': f'MLxtend_{self.algorithm}',
                 'mode': 'rules'
             }
+
+        if progress_callback:
+            progress_callback("Generating association rules...", 0.70)
 
         # Generate association rules
         rules_df = association_rules(
@@ -266,6 +276,9 @@ class MLxtendMiner(HybridMiner):
                 'leverage': float(row['leverage']) if 'leverage' in row else None,
                 'conviction': float(row['conviction']) if 'conviction' in row else None
             })
+
+        if progress_callback:
+            progress_callback("Finalizing results...", 0.90)
 
         execution_time = time.time() - start_time
 

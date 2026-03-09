@@ -131,7 +131,7 @@ def render_rules_table(rules):
 
     st.subheader("Filter Rules")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
         min_support = st.slider("Min Support", 0.0, 0.5, 0.0, 0.01, format="%.2f",
                                help="Only show rules appearing in at least this fraction of data")
@@ -141,8 +141,20 @@ def render_rules_table(rules):
     with col3:
         min_zhangs = st.slider("Min Assoc. Strength", -1.0, 1.0, -1.0, 0.1, format="%.1f",
                               help="Only show rules with at least this association strength")
-    with col4:
-        search = st.text_input("Search in rules", help="Filter rules containing this text")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        ant_filter = st.text_input(
+            "🔍 Filter antecedents (IF conditions)",
+            placeholder="e.g. hemoglobin, age = high",
+            help="Show only rules whose IF part contains this text"
+        )
+    with col2:
+        cons_filter = st.text_input(
+            "🎯 Filter consequents (THEN outcome)",
+            placeholder="e.g. label_anemia, = Yes",
+            help="Show only rules whose THEN part contains this text"
+        )
 
     # Sorting
     col1, col2 = st.columns([3, 1])
@@ -172,9 +184,12 @@ def render_rules_table(rules):
         filtered = [r for r in filtered if r.get("confidence", 0) >= min_confidence]
     if min_zhangs > -1:
         filtered = [r for r in filtered if (r.get("zhangs_metric") or -1) >= min_zhangs]
-    if search:
-        search_lower = search.lower()
-        filtered = [r for r in filtered if search_lower in str(format_rule(r)).lower()]
+    if ant_filter:
+        ant_lower = ant_filter.lower()
+        filtered = [r for r in filtered if ant_lower in format_rule(r)[0].lower()]
+    if cons_filter:
+        cons_lower = cons_filter.lower()
+        filtered = [r for r in filtered if cons_lower in format_rule(r)[1].lower()]
 
     # Sort
     filtered = sorted(filtered, key=lambda x: x.get(sort_by, 0) or 0, reverse=sort_desc)

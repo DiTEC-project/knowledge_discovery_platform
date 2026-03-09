@@ -23,10 +23,31 @@ def get_column_type(col, df):
 
 
 def to_numeric_safe(series):
-    """Convert series to numeric, handling comma-separated numbers."""
+    """Convert series to numeric, handling both European decimal notation (e.g. '89,3' → 89.3)
+    and US thousands separators (e.g. '1,000' → 1000)."""
     if pd.api.types.is_numeric_dtype(series):
         return series
-    converted = series.astype(str).str.replace(',', '').str.strip()
+
+    str_series = series.astype(str).str.strip()
+
+    # Detect comma usage: decimal separator (European "89,3") vs thousands separator (US "1,000")
+    non_null = str_series[str_series.notna() & (str_series != 'nan') & (str_series != '')]
+    if len(non_null) > 0 and non_null.str.contains(',', na=False).any():
+        comma_vals = non_null[non_null.str.contains(',', na=False)]
+        # European decimal: digit(s), comma, 1–2 digits at end (e.g. "89,3" or "15,60")
+        european_count = comma_vals.str.match(r'^-?\d+,\d{1,2}$').sum()
+        # US thousands: comma(s) each followed by exactly 3 digits (e.g. "1,000" or "1,000,000")
+        us_thousands_count = comma_vals.str.match(r'^-?\d{1,3}(,\d{3})+$').sum()
+
+        if european_count >= us_thousands_count:
+            # Treat comma as decimal separator → replace with period
+            converted = str_series.str.replace(',', '.', regex=False)
+        else:
+            # Treat comma as thousands separator → remove
+            converted = str_series.str.replace(',', '', regex=False)
+    else:
+        converted = str_series
+
     return pd.to_numeric(converted, errors='coerce')
 
 
