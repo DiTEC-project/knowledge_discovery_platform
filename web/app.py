@@ -1,4 +1,12 @@
 import streamlit as st
+import os
+
+_version_file = os.path.join(os.path.dirname(__file__), "VERSION")
+try:
+    with open(_version_file) as _f:
+        APP_VERSION = _f.read().strip()
+except Exception:
+    APP_VERSION = "unknown"
 
 st.set_page_config(
     page_title="Knowledge Discovery Tool",
@@ -199,6 +207,9 @@ with st.sidebar:
         st.session_state.tour_done = False
         st.session_state.tour_step = 0
         st.rerun()
+
+    st.markdown("---")
+    st.caption(f"v{APP_VERSION}")
 
     # Status summary and version selector
     if st.session_state.data is not None:
