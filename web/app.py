@@ -19,6 +19,8 @@ if "data" not in st.session_state:
     st.session_state.data = None
 if "current_data" not in st.session_state:
     st.session_state.current_data = None
+if "rule_mining_data" not in st.session_state:
+    st.session_state.rule_mining_data = None
 if "processing_history" not in st.session_state:
     st.session_state.processing_history = []
 if "mining_results" not in st.session_state:

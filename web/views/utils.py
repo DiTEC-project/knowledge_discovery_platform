@@ -69,7 +69,7 @@ def format_version_name(step_name, details=None):
     return f"v{n_versions}: {step_name}"
 
 
-def save_version(name, df, column_types=None, details=None):
+def save_version(name, df, column_types=None, details=None, rule_mining_data=None):
     """Save a new version to version history with unique naming."""
     if column_types is None:
         column_types = st.session_state.get("column_types", {}).copy()
@@ -77,22 +77,28 @@ def save_version(name, df, column_types=None, details=None):
         st.session_state.data_versions = [{
             "name": "v0: Original",
             "data": st.session_state.data.copy(),
-            "column_types": st.session_state.get("column_types", {}).copy()
+            "column_types": st.session_state.get("column_types", {}).copy(),
+            "rule_mining_data": st.session_state.data.copy()
         }]
 
     version_name = format_version_name(name, details)
+    # rule_mining_data defaults to df when not explicitly set (non-imputation steps)
+    rmd = rule_mining_data if rule_mining_data is not None else df
     st.session_state.data_versions.append({
         "name": version_name,
         "data": df.copy(),
-        "column_types": column_types.copy()
+        "column_types": column_types.copy(),
+        "rule_mining_data": rmd.copy()
     })
     st.session_state.current_version_idx = len(st.session_state.data_versions) - 1
+    st.session_state.rule_mining_data = rmd.copy()
 
 
 def reset_to_original():
     """Reset data to original version."""
     data_versions = st.session_state.get("data_versions", [])
     st.session_state.current_data = st.session_state.data.copy()
+    st.session_state.rule_mining_data = st.session_state.data.copy()
     st.session_state.processing_history = []
     original_version = data_versions[0] if data_versions else {}
     if "column_types" in original_version:
@@ -100,7 +106,8 @@ def reset_to_original():
     st.session_state.data_versions = [{
         "name": "v0: Original",
         "data": st.session_state.data.copy(),
-        "column_types": st.session_state.get("column_types", {}).copy()
+        "column_types": st.session_state.get("column_types", {}).copy(),
+        "rule_mining_data": st.session_state.data.copy()
     }]
     st.session_state.current_version_idx = 0
 
@@ -112,6 +119,8 @@ def revert_to_version(idx):
         st.session_state.current_data = data_versions[idx]["data"].copy()
         if "column_types" in data_versions[idx]:
             st.session_state.column_types = data_versions[idx]["column_types"].copy()
+        rmd = data_versions[idx].get("rule_mining_data")
+        st.session_state.rule_mining_data = rmd.copy() if rmd is not None else data_versions[idx]["data"].copy()
         st.session_state.data_versions = data_versions[:idx + 1]
         st.session_state.processing_history = st.session_state.processing_history[:idx]
         st.session_state.current_version_idx = idx

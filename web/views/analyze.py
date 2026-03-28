@@ -183,6 +183,8 @@ def render():
         return
 
     df = st.session_state.current_data
+    _rmd = st.session_state.get("rule_mining_data")
+    mining_df = _rmd if _rmd is not None else df
 
     # Check for numerical columns using session state column types
     num_cols = [c for c in df.columns if get_column_type(c, df) == "numerical"]
@@ -209,9 +211,9 @@ def render():
     st.markdown("---")
 
     if "Aerial+" in method:
-        render_aerial_config(df)
+        render_aerial_config(df, mining_df)
     else:
-        render_fpgrowth_config(df)
+        render_fpgrowth_config(df, mining_df)
 
     # Show persistent success message from last analysis
     if (st.session_state.get("last_analysis_result") or {}).get("success"):
@@ -241,7 +243,7 @@ def _select_aerial_preset(key):
     st.session_state.aerial_batch_size = preset["params"].get("batch_size") or 32
 
 
-def render_aerial_config(df):
+def render_aerial_config(df, mining_df=None):
     st.subheader("Aerial+ Configuration")
 
     st.markdown("**Select a preset:**")
@@ -366,7 +368,7 @@ def render_aerial_config(df):
     st.markdown("---")
 
     if st.button("🚀 Run Aerial+ Analysis", type="primary", width="stretch"):
-        run_aerial(df, params, target_cols, target_values, feature_cols if feature_cols else None, feature_values)
+        run_aerial(df, mining_df, params, target_cols, target_values, feature_cols if feature_cols else None, feature_values)
 
 
 def _select_fp_preset(key):
@@ -378,7 +380,7 @@ def _select_fp_preset(key):
     st.session_state.fp_max_items = preset["params"]["max_items"]
 
 
-def render_fpgrowth_config(df):
+def render_fpgrowth_config(df, mining_df=None):
     st.subheader("FP-Growth Configuration")
 
     st.markdown("**Select a preset:**")
@@ -483,10 +485,76 @@ def render_fpgrowth_config(df):
     st.markdown("---")
 
     if st.button("🚀 Run FP-Growth Analysis", type="primary", width="stretch"):
-        run_fpgrowth(df, params, target_cols, target_values, feature_cols if feature_cols else None, feature_values)
+        run_fpgrowth(mining_df if mining_df is not None else df, params, target_cols, target_values, feature_cols if feature_cols else None, feature_values)
 
 
-def run_aerial(df, params, target_cols, target_values, features, feature_values):
+
+def _recompute_rule_metrics(rules, df_clean, mining_df=None):
+    """Recompute count-based quality metrics using observed data only.
+
+    df_clean   : discretized current_data — categories match the rule values from Aerial+
+    mining_df  : pre-imputation data — used solely to detect which cells were originally
+                 observed (notna) vs imputed. Imputed cells are excluded from all counts.
+    """
+    n = len(df_clean)
+    if n == 0 or not rules:
+        return rules
+
+    recomputed = []
+    for rule in rules:
+        ants = rule.get('antecedents', [])
+        cons = rule.get('consequent', {})
+
+        ant_mask = pd.Series(True, index=df_clean.index)
+        for ant in ants:
+            feat, val = ant.get('feature'), ant.get('value')
+            if feat not in df_clean.columns:
+                ant_mask = pd.Series(False, index=df_clean.index)
+                break
+            value_match = df_clean[feat].astype(str) == str(val)
+            if mining_df is not None and feat in mining_df.columns:
+                was_observed = mining_df[feat].notna()
+            else:
+                was_observed = pd.Series(True, index=df_clean.index)
+            ant_mask = ant_mask & was_observed & value_match
+
+        cons_feat, cons_val = cons.get('feature'), cons.get('value')
+        if cons_feat in df_clean.columns:
+            cons_value_match = df_clean[cons_feat].astype(str) == str(cons_val)
+            if mining_df is not None and cons_feat in mining_df.columns:
+                cons_observed = mining_df[cons_feat].notna()
+            else:
+                cons_observed = pd.Series(True, index=df_clean.index)
+            cons_mask = cons_observed & cons_value_match
+        else:
+            cons_mask = pd.Series(False, index=df_clean.index)
+
+        both_count = (ant_mask & cons_mask).sum()
+        ant_count = ant_mask.sum()
+        cons_count = cons_mask.sum()
+
+        support = both_count / n
+        ant_support = ant_count / n
+        cons_support = cons_count / n
+        confidence = support / ant_support if ant_support > 0 else 0.0
+
+        if 0 < cons_support < 1:
+            zhangs = (confidence - cons_support) / (1 - cons_support) if confidence >= cons_support \
+                else (confidence - cons_support) / cons_support
+        else:
+            zhangs = 0.0
+
+        updated = dict(rule)
+        updated['support'] = round(float(support), 4)
+        updated['confidence'] = round(float(confidence), 4)
+        updated['zhangs_metric'] = round(float(zhangs), 4)
+        updated['interestingness'] = round(float(support * confidence), 4)
+        recomputed.append(updated)
+
+    return recomputed
+
+
+def run_aerial(df, mining_df, params, target_cols, target_values, features, feature_values):
     progress = st.progress(0, "Initializing...")
     status_placeholder = st.empty()
 
@@ -496,6 +564,8 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
 
         # Validate and clean data for Aerial
         df_clean = df.copy()
+        # mining_df tracks pre-imputation data for quality metric recomputation
+        mining_df_clean = (mining_df if mining_df is not None else df).copy()
 
         # If specific features are selected, only use those + target columns
         if features:
@@ -503,6 +573,7 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             cols_to_keep = [c for c in cols_to_keep if c in df_clean.columns]
             if cols_to_keep:
                 df_clean = df_clean[cols_to_keep]
+                mining_df_clean = mining_df_clean[[c for c in cols_to_keep if c in mining_df_clean.columns]]
                 status_placeholder.info(f"⏳ Using {len(cols_to_keep)} selected columns for training...")
 
         # Remove columns with only one unique value (causes division by zero in Aerial)
@@ -511,7 +582,7 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             st.warning(
                 f"Removing {len(constant_cols)} constant columns (only 1 unique value): {', '.join(constant_cols[:5])}{'...' if len(constant_cols) > 5 else ''}")
             df_clean = df_clean.drop(columns=constant_cols)
-            # Update target_cols and features if they contained removed columns
+            mining_df_clean = mining_df_clean.drop(columns=[c for c in constant_cols if c in mining_df_clean.columns])
             if target_cols:
                 target_cols = [c for c in target_cols if c not in constant_cols]
             if features:
@@ -522,6 +593,7 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
         if all_na_cols:
             st.warning(f"Removing {len(all_na_cols)} columns with all missing values: {', '.join(all_na_cols)}")
             df_clean = df_clean.drop(columns=all_na_cols)
+            mining_df_clean = mining_df_clean.drop(columns=[c for c in all_na_cols if c in mining_df_clean.columns])
             if target_cols:
                 target_cols = [c for c in target_cols if c not in all_na_cols]
             if features:
@@ -536,6 +608,14 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             status_placeholder.empty()
             st.error("Need at least 2 columns for rule mining.")
             return
+
+        # Warn if training data has NaN — Aerial+ drops those rows during training
+        rows_with_nan = df_clean.isna().any(axis=1).sum()
+        if rows_with_nan > 0:
+            st.warning(
+                f"⚠️ {rows_with_nan} rows have missing values and will be excluded from Aerial+ training. "
+                f"Consider applying imputation in Preprocess to retain these rows."
+            )
 
         # Build target_class parameter for Aerial+
         # PyAerial format: ["feature1", "feature2", {"feature3": "value1"}, ...]
@@ -581,13 +661,15 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
         )
 
         n_epochs = params["epochs"]
-        status_placeholder.info(f"⏳ Training neural network ({n_epochs} epoch{'s' if n_epochs != 1 else ''})...")
-        progress.progress(20, f"Training neural network ({n_epochs} epochs)...")
 
-        rules, stats = miner.mine_rules(df_clean)
+        def aerial_progress(message, fraction):
+            pct = max(20, min(85, int(20 + fraction * 65)))
+            progress.progress(pct, message)
+            status_placeholder.info(f"⏳ {message}")
 
-        status_placeholder.info("⏳ Extracting association rules...")
-        progress.progress(85, "Extracting association rules...")
+        aerial_progress(f"Training neural network ({n_epochs} epoch{'s' if n_epochs != 1 else ''})...", 0.0)
+
+        rules, stats = miner.mine_rules(df_clean, progress_callback=aerial_progress)
 
         # Handle case where mining returns no results
         if not rules:
@@ -596,6 +678,13 @@ def run_aerial(df, params, target_cols, target_values, features, feature_values)
             st.warning(
                 "No rules found. Try adjusting parameters: lower Pattern Frequency, lower Pattern Strength, or more Training Length.")
             return
+
+        status_placeholder.info("⏳ Computing rule quality on observed data...")
+        progress.progress(88, "Computing rule quality on observed data...")
+
+        # Recompute count-based quality metrics: value matching uses df_clean
+        # (consistent categories), observedness check uses mining_df_clean (NaN = imputed)
+        rules = _recompute_rule_metrics(rules, df_clean, mining_df_clean)
 
         status_placeholder.info("⏳ Processing results...")
         progress.progress(90, "Processing results...")

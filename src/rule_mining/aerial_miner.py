@@ -25,7 +25,7 @@ class AerialMiner(HybridMiner):
             quality_metrics: list = None,
             **kwargs
     ):
-        super().__init__(min_support=0.0, min_confidence=0.0, **kwargs)
+        super().__init__(min_support=0.01, min_confidence=0.5, **kwargs)
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -86,17 +86,24 @@ class AerialMiner(HybridMiner):
 
         return itemsets, stats
 
-    def mine_rules(self, data: pd.DataFrame) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def mine_rules(self, data: pd.DataFrame, progress_callback=None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Mine association rules using Aerial+.
 
         Args:
             data: DataFrame with discretized features and labels
+            progress_callback: optional callable(message: str, fraction: float)
 
         Returns:
             Tuple of (rules, stats)
         """
+        if progress_callback:
+            progress_callback("Training neural network...", 0.10)
+
         trained_ae = self._train_model(data)
+
+        if progress_callback:
+            progress_callback("Extracting association rules...", 0.75)
 
         result = rule_extraction.generate_rules(
             trained_ae,

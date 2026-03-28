@@ -69,9 +69,12 @@ class OutlierHandler:
         for col in self._numerical_cols:
             mean = df[col].mean()
             std = df[col].std()
-            lower = mean - self.zscore_threshold * std
-            upper = mean + self.zscore_threshold * std
-            self._bounds[col] = (lower, upper)
+            if std == 0:
+                self._bounds[col] = (mean, mean)
+            else:
+                lower = mean - self.zscore_threshold * std
+                upper = mean + self.zscore_threshold * std
+                self._bounds[col] = (lower, upper)
 
     def _fit_clip(self, df: pd.DataFrame):
         for col in self._numerical_cols:
@@ -132,7 +135,7 @@ class OutlierHandler:
             random_state=self.random_state,
             n_jobs=-1
         )
-        predictions = iso_forest.fit_predict(df[self._numerical_cols].fillna(0))
+        predictions = iso_forest.fit_predict(df[self._numerical_cols].fillna(df[self._numerical_cols].median()))
         outlier_mask = predictions == -1
 
         if self.action == 'remove':
@@ -157,12 +160,16 @@ class OutlierHandler:
         if not self._numerical_cols:
             return result
 
+        n_samples = df[self._numerical_cols].dropna().shape[0]
+        n_neighbors = min(20, n_samples - 1)
+        if n_neighbors < 1:
+            return result
         lof = LocalOutlierFactor(
-            n_neighbors=20,
+            n_neighbors=n_neighbors,
             contamination=self.contamination,
             n_jobs=-1
         )
-        predictions = lof.fit_predict(df[self._numerical_cols].fillna(0))
+        predictions = lof.fit_predict(df[self._numerical_cols].fillna(df[self._numerical_cols].median()))
         outlier_mask = predictions == -1
 
         if self.action == 'remove':

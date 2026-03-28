@@ -151,10 +151,11 @@ def _handle_upload(uploaded_file, center_col=None):
 
                 st.session_state.data = df
                 st.session_state.current_data = df.copy()
+                st.session_state.rule_mining_data = df.copy()
                 st.session_state.filename = uploaded_file.name
                 st.session_state.processing_history = []
                 st.session_state.column_types = column_types
-                st.session_state.data_versions = [{"name": "v0: Original", "data": df.copy(), "column_types": column_types.copy()}]
+                st.session_state.data_versions = [{"name": "v0: Original", "data": df.copy(), "column_types": column_types.copy(), "rule_mining_data": df.copy()}]
                 st.session_state.current_version_idx = 0
                 st.session_state.sidebar_version_select = 0
                 st.session_state.mining_results = None

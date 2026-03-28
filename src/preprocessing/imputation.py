@@ -79,7 +79,8 @@ class DataImputer:
 
         if self._numerical_cols and self.numerical_strategy != 'interpolate':
             self._numerical_imputer = self._create_numerical_imputer()
-            self._numerical_imputer.fit(df[self._numerical_cols])
+            fit_data = df[self._numerical_cols].replace([np.inf, -np.inf], np.nan)
+            self._numerical_imputer.fit(fit_data)
 
         if self._categorical_cols and self.categorical_strategy != 'knn_categorical':
             self._categorical_imputer = self._create_categorical_imputer()
@@ -103,9 +104,8 @@ class DataImputer:
                     result[self._numerical_cols].median()
                 )
             else:
-                result[self._numerical_cols] = self._numerical_imputer.transform(
-                    result[self._numerical_cols]
-                )
+                transform_data = result[self._numerical_cols].replace([np.inf, -np.inf], np.nan)
+                result[self._numerical_cols] = self._numerical_imputer.transform(transform_data)
 
         if self._categorical_cols:
             if self.categorical_strategy == 'knn_categorical':

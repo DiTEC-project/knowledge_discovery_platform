@@ -392,13 +392,31 @@ def render_discretization(df):
                     "n_bins": n_bins
                 })
 
-                # Save to version history with descriptive details
+                # Apply same discretization to rule_mining_data (preserves NaN from pre-imputation)
+                current_rmd = st.session_state.get("rule_mining_data")
+                if current_rmd is not None:
+                    rmd = current_rmd.copy()
+                    for col in selected_cols:
+                        rmd[col] = to_numeric_safe(rmd[col])
+                    rmd_discretizer = DataDiscretizer(method=method, n_bins=n_bins, target_col=target_col)
+                    if method_info["supervised"]:
+                        rmd_cols = selected_cols + [target_col] if target_col not in selected_cols else selected_cols
+                        rmd_disc = rmd_discretizer.discretize(rmd[rmd_cols])
+                    else:
+                        rmd_disc = rmd_discretizer.discretize(rmd[selected_cols])
+                    for col in selected_cols:
+                        rmd[col] = rmd_disc[col]
+                    rmd_new = rmd
+                else:
+                    rmd_new = df_to_discretize
+
                 cols_detail = format_cols_summary(selected_cols)
                 save_version(
                     f"Discretize: {cols_detail}",
                     df_to_discretize,
                     column_types,
-                    details=f"{method_info['name']}, {n_bins} bins"
+                    details=f"{method_info['name']}, {n_bins} bins",
+                    rule_mining_data=rmd_new
                 )
 
                 # Store result for display
@@ -495,10 +513,15 @@ def render_imputation(df):
                     "filled": filled
                 })
 
+                # rule_mining_data stays at the pre-imputation state (or the state from before
+                # the FIRST imputation if the user imputes multiple times)
+                existing_rmd = st.session_state.get("rule_mining_data")
+                rmd_to_save = existing_rmd if existing_rmd is not None else df
                 save_version(
                     f"Impute: {filled} values filled",
                     new_df,
-                    details=f"{num_strategy}/{cat_strategy}"
+                    details=f"{num_strategy}/{cat_strategy}",
+                    rule_mining_data=rmd_to_save
                 )
 
                 # Store result for display
@@ -595,8 +618,12 @@ def render_outliers(df):
                     outliers = ((col_data < q1 - mult * iqr) | (col_data > q3 + mult * iqr)).sum()
                 elif method == "zscore":
                     thresh = param_value if param_value else 3.0
-                    z = np.abs((col_data - col_data.mean()) / col_data.std())
-                    outliers = (z > thresh).sum()
+                    std = col_data.std()
+                    if std == 0:
+                        outliers = 0
+                    else:
+                        z = np.abs((col_data - col_data.mean()) / std)
+                        outliers = (z > thresh).sum()
                 else:
                     outliers = int(len(col_data) * 0.05)  # Estimate
 
@@ -633,9 +660,21 @@ def render_outliers(df):
                 for col in selected_cols:
                     df_for_outliers[col] = to_numeric_safe(df_for_outliers[col])
 
+                exclude_cols_list = [c for c in df.columns if c not in selected_cols]
                 handler = OutlierHandler(method=method, action=action, **kwargs)
-                new_df = handler.fit_transform(df_for_outliers,
-                                               exclude_cols=[c for c in df.columns if c not in selected_cols])
+                handler.fit(df_for_outliers, exclude_cols=exclude_cols_list)
+                new_df = handler.transform(df_for_outliers)
+
+                # Apply same fitted handler to rule_mining_data (preserves NaN from pre-imputation)
+                current_rmd = st.session_state.get("rule_mining_data")
+                if current_rmd is not None:
+                    rmd_for_outliers = current_rmd.copy()
+                    for col in selected_cols:
+                        if col in rmd_for_outliers.columns:
+                            rmd_for_outliers[col] = to_numeric_safe(rmd_for_outliers[col])
+                    rmd_new = handler.transform(rmd_for_outliers)
+                else:
+                    rmd_new = new_df
 
                 rows_diff = len(df) - len(new_df)
 
@@ -652,7 +691,8 @@ def render_outliers(df):
                 save_version(
                     f"Outliers: {cols_detail}",
                     new_df,
-                    details=f"{method_info['name']}, {action}"
+                    details=f"{method_info['name']}, {action}",
+                    rule_mining_data=rmd_new
                 )
 
                 # Store result for display
@@ -847,6 +887,35 @@ def render_create_labels(df):
             new_df = df.copy()
             new_df[new_col_name] = mask.map({True: value_if_true, False: value_if_false})
 
+            # Apply same label conditions to rule_mining_data
+            current_rmd = st.session_state.get("rule_mining_data")
+            if current_rmd is not None:
+                rmd = current_rmd.copy()
+                rmd_mask = pd.Series([True] * len(rmd), index=rmd.index)
+                for cond in st.session_state.label_conditions:
+                    feat = cond["feature"]
+                    op = cond["operator"]
+                    val = cond["value"]
+                    if feat not in rmd.columns:
+                        continue
+                    feat_data = to_numeric_safe(rmd[feat]) if feat in num_cols else rmd[feat]
+                    if op == "<":
+                        rmd_mask = rmd_mask & (feat_data < val)
+                    elif op == "<=":
+                        rmd_mask = rmd_mask & (feat_data <= val)
+                    elif op == ">":
+                        rmd_mask = rmd_mask & (feat_data > val)
+                    elif op == ">=":
+                        rmd_mask = rmd_mask & (feat_data >= val)
+                    elif op == "==":
+                        rmd_mask = rmd_mask & (feat_data == val)
+                    elif op == "!=":
+                        rmd_mask = rmd_mask & (feat_data != val)
+                rmd[new_col_name] = rmd_mask.map({True: value_if_true, False: value_if_false})
+                rmd_new = rmd
+            else:
+                rmd_new = new_df
+
             # Update column types
             column_types = st.session_state.get("column_types", {})
             column_types[new_col_name] = "categorical"
@@ -865,7 +934,8 @@ def render_create_labels(df):
                 f"Label: {new_col_name}",
                 new_df,
                 column_types,
-                details=f"{len(st.session_state.label_conditions)} conditions"
+                details=f"{len(st.session_state.label_conditions)} conditions",
+                rule_mining_data=rmd_new
             )
 
             # Clear conditions
