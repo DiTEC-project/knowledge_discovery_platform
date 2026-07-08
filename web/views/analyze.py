@@ -130,25 +130,25 @@ AERIAL_PRESETS = {
     "quick_overview": {
         "name": "Quick Overview",
         "description": "Find the most obvious, strong patterns quickly. Returns fewer but highly reliable rules. Best for getting a first impression.",
-        "params": {"min_rule_frequency": 0.5, "min_rule_strength": 0.9, "max_antecedents": 2, "epochs": 2, "batch_size": 32,
+        "params": {"min_rule_frequency": 0.5, "min_rule_strength": 0.9, "max_antecedents": 2, "epochs": 5, "batch_size": 32,
                    "layer_dims": None}
     },
     "balanced": {
         "name": "Balanced Analysis",
         "description": "Good balance between coverage and reliability. Recommended for most analyses.",
-        "params": {"min_rule_frequency": 0.3, "min_rule_strength": 0.8, "max_antecedents": 2, "epochs": 2, "batch_size": 16,
+        "params": {"min_rule_frequency": 0.3, "min_rule_strength": 0.8, "max_antecedents": 2, "epochs": 5, "batch_size": 16,
                    "layer_dims": None}
     },
     "deep_search": {
         "name": "Deep Search",
         "description": "Find subtle patterns that might be missed. Returns more rules including weaker associations.",
-        "params": {"min_rule_frequency": 0.1, "min_rule_strength": 0.7, "max_antecedents": 3, "epochs": 2, "batch_size": 16,
+        "params": {"min_rule_frequency": 0.1, "min_rule_strength": 0.7, "max_antecedents": 3, "epochs": 5, "batch_size": 16,
                    "layer_dims": None}
     },
     "comprehensive": {
         "name": "Comprehensive",
         "description": "Maximum coverage. Finds many patterns including complex ones. Takes longer to run.",
-        "params": {"min_rule_frequency": 0.01, "min_rule_strength": 0.7, "max_antecedents": 4, "epochs": 2, "batch_size": 2,
+        "params": {"min_rule_frequency": 0.01, "min_rule_strength": 0.7, "max_antecedents": 4, "epochs": 5, "batch_size": 2,
                    "layer_dims": None}
     }
 }
