@@ -239,11 +239,8 @@ with st.sidebar:
             short_names = [n[:22] + "..." if len(n) > 25 else n for n in version_names]
 
             # Sync widget to current_version_idx (handles programmatic version changes)
-            widget_val = st.session_state.get("sidebar_version_select")
-            expected_idx = st.session_state.current_version_idx
-            if widget_val is not None and widget_val != expected_idx:
-                # Widget is out of sync - update it to match current_version_idx
-                st.session_state.sidebar_version_select = expected_idx
+            if st.session_state.get("sidebar_version_select") != st.session_state.current_version_idx:
+                st.session_state.sidebar_version_select = st.session_state.current_version_idx
 
             def on_sidebar_version_change():
                 """Called only when user manually changes the version selector."""
@@ -257,7 +254,6 @@ with st.sidebar:
             st.selectbox(
                 "Version",
                 range(len(version_names)),
-                index=st.session_state.current_version_idx,
                 format_func=lambda i: short_names[i],
                 key="sidebar_version_select",
                 on_change=on_sidebar_version_change
